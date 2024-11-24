@@ -1,14 +1,9 @@
 import unittest
-import tkinter as tk
 from logic import MNISTLogic
 
 class TestMNISTLogic(unittest.TestCase):
     def setUp(self):
-        self.root = tk.Tk()  # Initialize the Tkinter root window
         self.logic = MNISTLogic()
-
-    def tearDown(self):
-        self.root.destroy()  # Destroy the Tkinter root window after each test
 
     def test_initial_index(self):
         self.assertEqual(self.logic.index, 0)

@@ -42,12 +42,20 @@ class MNISTApp:
         self.next_button = ttk.Button(self.root, text="Next Image", command=self.display_next_image)
         self.next_button.pack()
 
+        self.image_label = tk.Label(self.root)
+        self.image_label.pack()
+
+        self.prediction_label = tk.Label(self.root, text="")
+        self.prediction_label.pack()
+
     def display_next_image(self):
-        image = self.logic.get_next_image()
-        if image is not None:
-            img_label = tk.Label(self.scrollable_frame, image=image)
-            img_label.image = image  # Keep a reference to avoid garbage collection
-            img_label.pack()
+        image_tk, predicted_class = self.logic.get_next_image()
+        if image_tk:
+            self.image_label.config(image=image_tk)
+            self.image_label.image = image_tk
+            self.prediction_label.config(text=f"Predicted Class: {predicted_class}")
+        else:
+            self.prediction_label.config(text="No more images")
 
     def run(self):
         self.root.mainloop()
