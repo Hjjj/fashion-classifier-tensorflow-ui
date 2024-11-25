@@ -1,34 +1,69 @@
 import tensorflow as tf
 from PIL import Image, ImageTk
 import numpy as np
+import os  # Add import for os module
+
+TRAINING_EPOCHS = 100
 
 class MNISTLogic:
-    def __init__(self):
+    def __init__(self, status_label=None):  # Add status_label parameter
+        self.status_label = status_label  # Store the status_label
+
         (self.x_train, self.y_train), (self.x_test, self.y_test) = tf.keras.datasets.fashion_mnist.load_data()
         self.index = 0
         
         # Normalize the data
         self.x_train, self.x_test = self.x_train / 255.0, self.x_test / 255.0
+
+        model_just_opened = False
         
-        # Create the model
-        self.model = tf.keras.Sequential([
-            tf.keras.layers.Flatten(input_shape=(28, 28)),
-            tf.keras.layers.Dense(128, activation='relu'),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Dense(10),
-            tf.keras.layers.Softmax()  # Add softmax layer for probability distribution
-        ])
+        # if the model exists serialized in disk load it
+        if (os.path.exists("models/fashion-ai-model.h5")):
+            self.status("Model loaded from disk")
+            self.model = tf.keras.models.load_model("models/fashion-ai-model.h5")
+            model_just_opened = True
+        else:
+            # Create the model
+            self.status("Creating the model")
+
+            self.model = tf.keras.Sequential([
+                tf.keras.layers.Flatten(input_shape=(28, 28)),
+                tf.keras.layers.Dense(128, activation='relu'),
+                tf.keras.layers.Dropout(0.2),
+                tf.keras.layers.Dense(10),
+                tf.keras.layers.Softmax()  # Add softmax layer for probability distribution
+            ])
+            
+            # Compile the model
+            self.model.compile(optimizer='adam',
+                            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+                            metrics=['accuracy'])
+            
+            # Output message to UI that training is going on
+            self.status("Training the model, please wait...")
+
+            # Train the model
+            self.model.fit(self.x_train, self.y_train, epochs=TRAINING_EPOCHS)
         
-        # Compile the model
-        self.model.compile(optimizer='adam',
-                           loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-                           metrics=['accuracy'])
+        # Serialize the model
+        # create a folder off of the current working directory named Models
+        if not os.path.exists("models"):
+            self.status("Creating models folder")
+            os.makedirs("models")
         
-        # Train the model
-        self.model.fit(self.x_train, self.y_train, epochs=5)
-        
+        # save the model in the folder
+        if not model_just_opened:
+            self.status("Saving the model")
+            self.model.save("models/fashion-ai-model.h5")
+
         # Evaluate the model
         self.model.evaluate(self.x_test, self.y_test, verbose=2)
+
+    def status(self, message):
+        if self.status_label:
+            self.status_label.config(text=message)  # Update status label
+        else:
+            print(message)  # Fallback to print if no label provided
 
     def recognize_image(self, image_array):
         # Preprocess the image

@@ -6,10 +6,9 @@ class MNISTApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("MNIST Viewer")
-        self.logic = MNISTLogic()
-
         self.create_menu()
         self.create_widgets()
+        self.logic = MNISTLogic(status_label=self.status_label)
 
     def create_menu(self):
         menubar = tk.Menu(self.root)
@@ -47,6 +46,11 @@ class MNISTApp:
 
         self.prediction_label = tk.Label(self.root, text="")
         self.prediction_label.pack()
+
+        self.status_label = tk.Label(self.root, text="Status: Ready")
+        self.status_label.pack()
+
+
 
     def display_next_image(self):
         image_tk, predicted_class = self.logic.get_next_image()
