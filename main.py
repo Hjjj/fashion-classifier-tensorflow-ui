@@ -1,5 +1,5 @@
-from ui import MNISTApp
+from ui import FashionImageRecognitionApp  # Update import
 
 if __name__ == "__main__":
-    app = MNISTApp()
+    app = FashionImageRecognitionApp()  # Update class name
     app.run()

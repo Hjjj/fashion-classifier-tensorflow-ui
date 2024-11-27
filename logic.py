@@ -3,67 +3,58 @@ from PIL import Image, ImageTk
 import numpy as np
 import os  # Add import for os module
 
-TRAINING_EPOCHS = 100
+TRAINING_EPOCHS = 10
+MODEL_PATH = "models/fashion-ai-model.keras"  # Add constant for model path
+class_labels = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat', 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']  # Add class labels
 
-class MNISTLogic:
+class AIFashionImageRecognitionModel:  # Rename class
     def __init__(self, status_label=None):  # Add status_label parameter
         self.status_label = status_label  # Store the status_label
-
-        (self.x_train, self.y_train), (self.x_test, self.y_test) = tf.keras.datasets.fashion_mnist.load_data()
-        self.index = 0
+        self.index = 0 #this var keeps state of the current image being processed
+        self.load_fashion_data()  # fashion MNIST images with labels
         
-        # Normalize the data
+        if not self.open_serialized_model():
+            self.status("Model not found, retraining...")
+            self.retrain(TRAINING_EPOCHS)
+        
+        self.loss, self.accuracy = self.model.evaluate(self.x_test, self.y_test, verbose=2)
+        print(f"Pre-trained model accuracy: {self.accuracy * 100:.2f}%")
+        print(f"Pre-trained model loss: {self.loss:.4f}")
+
+        self.save_serialized_model()
+
+    def load_fashion_data(self):
+        (self.x_train, self.y_train), (self.x_test, self.y_test) = tf.keras.datasets.fashion_mnist.load_data()
         self.x_train, self.x_test = self.x_train / 255.0, self.x_test / 255.0
 
-        model_just_opened = False
-        
-        # if the model exists serialized in disk load it
-        if (os.path.exists("models/fashion-ai-model.h5")):
-            self.status("Model loaded from disk")
-            self.model = tf.keras.models.load_model("models/fashion-ai-model.h5")
-            model_just_opened = True
-        else:
-            # Create the model
-            self.status("Creating the model")
+    def open_serialized_model(self):
+        if os.path.exists(MODEL_PATH):
+            try:
+                self.status(f"Model loading from {MODEL_PATH}")
+                self.model = tf.keras.models.load_model(MODEL_PATH)
+                self.model.compile(optimizer='adam',  # Compile the model after loading
+                                   loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+                                   metrics=['accuracy'])
+                return True
+            except OSError as e:
+                self.status(f"Error loading model: {e}")
+                self.model = None
+        return False
 
-            self.model = tf.keras.Sequential([
-                tf.keras.layers.Flatten(input_shape=(28, 28)),
-                tf.keras.layers.Dense(128, activation='relu'),
-                tf.keras.layers.Dropout(0.2),
-                tf.keras.layers.Dense(10),
-                tf.keras.layers.Softmax()  # Add softmax layer for probability distribution
-            ])
-            
-            # Compile the model
-            self.model.compile(optimizer='adam',
-                            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-                            metrics=['accuracy'])
-            
-            # Output message to UI that training is going on
-            self.status("Training the model, please wait...")
-
-            # Train the model
-            self.model.fit(self.x_train, self.y_train, epochs=TRAINING_EPOCHS)
-        
-        # Serialize the model
+    def save_serialized_model(self):
         # create a folder off of the current working directory named Models
         if not os.path.exists("models"):
             self.status("Creating models folder")
             os.makedirs("models")
         
         # save the model in the folder
-        if not model_just_opened:
-            self.status("Saving the model")
-            self.model.save("models/fashion-ai-model.h5")
-
-        # Evaluate the model
-        self.model.evaluate(self.x_test, self.y_test, verbose=2)
+        self.status("Saving the model")
+        self.model.save(MODEL_PATH)
 
     def status(self, message):
         if self.status_label:
             self.status_label.config(text=message)  # Update status label
-        else:
-            print(message)  # Fallback to print if no label provided
+        print(message)
 
     def recognize_image(self, image_array):
         # Preprocess the image
@@ -72,15 +63,45 @@ class MNISTLogic:
         # Predict the class
         predictions = self.model.predict(image_array)
         predicted_class = np.argmax(predictions[0])
+        predicted_label = class_labels[predicted_class]  # Convert to string label
         
-        return predicted_class
+        return predicted_label
 
-    def get_next_image(self):
-        if self.index < len(self.x_train):
-            image_array = self.x_train[self.index]
+    def interpret_next_image(self):  # Rename method
+        if self.index < len(self.x_test):
+            image_array = self.x_test[self.index]
             self.index += 1
             image = Image.fromarray((image_array * 255).astype(np.uint8))  # Denormalize for display
             image_tk = ImageTk.PhotoImage(image)
-            predicted_class = self.recognize_image(image_array)
-            return image_tk, predicted_class
+            predicted_label = self.recognize_image(image_array)
+            return image_tk, predicted_label
         return None, None
+
+    def retrain(self, epochs):
+        # Create the model
+        self.status("Creating the model")
+
+        self.model = tf.keras.Sequential([
+            tf.keras.layers.Flatten(input_shape=(28, 28)),
+            tf.keras.layers.Dense(128, activation='relu'),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Dense(10),
+            tf.keras.layers.Softmax()  # Add softmax layer for probability distribution
+        ])
+
+        # Compile the model
+        self.model.compile(optimizer='adam',
+                           loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+                           metrics=['accuracy'])
+
+        self.status(f"Retraining the model for {epochs} epochs, please wait...")
+        self.model.fit(self.x_train, self.y_train, epochs=epochs)
+
+        self.status("Model retraining complete")
+        self.status("Evaluating the model")
+        
+        self.loss, self.accuracy = self.model.evaluate(self.x_test, self.y_test, verbose=2)
+        self.save_serialized_model()
+        self.status(f"Pre-trained model accuracy: {self.accuracy * 100:.2f}%")
+        self.status(f"Pre-trained model loss: {self.loss:.4f}")
+        self.status("Model retrained and saved to disk")

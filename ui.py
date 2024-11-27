@@ -1,20 +1,27 @@
 import tkinter as tk
-from tkinter import ttk
-from logic import MNISTLogic
+from tkinter import ttk, simpledialog
+from logic import AIFashionImageRecognitionModel  # Update import
 
-class MNISTApp:
+class FashionImageRecognitionApp:  # Rename class
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("MNIST Viewer")
+        self.root.title("Fashion Vision")
         self.create_menu()
         self.create_widgets()
-        self.logic = MNISTLogic(status_label=self.status_label)
+        # this is the AI model
+        self.ai_model = AIFashionImageRecognitionModel(status_label=self.status_label)  # Update class name
 
     def create_menu(self):
         menubar = tk.Menu(self.root)
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Exit", command=self.root.quit)
         menubar.add_cascade(label="File", menu=file_menu)
+
+        # Add 'Retrain Model' menu item
+        model_menu = tk.Menu(menubar, tearoff=0)
+        model_menu.add_command(label="Retrain Model", command=self.retrain_model_dialog)
+        menubar.add_cascade(label="Model", menu=model_menu)
+
         self.root.config(menu=menubar)
 
     def create_widgets(self):
@@ -50,10 +57,17 @@ class MNISTApp:
         self.status_label = tk.Label(self.root, text="Status: Ready")
         self.status_label.pack()
 
-
+    def retrain_model_dialog(self):
+        # Open a dialog to ask for the number of epochs to train
+        epochs = simpledialog.askinteger("Retrain Model", "Enter number of epochs:", initialvalue=2, minvalue=1)
+        if epochs is not None:
+            self.ai_model.retrain(epochs)
 
     def display_next_image(self):
-        image_tk, predicted_class = self.logic.get_next_image()
+        #this function gets the next image from a dataset, and 
+        #queries the AI model to recognize what the image is
+        image_tk, predicted_class = self.ai_model.interpret_next_image()  # Update method call
+        
         if image_tk:
             self.image_label.config(image=image_tk)
             self.image_label.image = image_tk
