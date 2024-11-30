@@ -3,16 +3,17 @@ from PIL import Image, ImageTk
 import numpy as np
 import os  # Add import for os module
 
-TRAINING_EPOCHS = 10
+TRAINING_EPOCHS = 5
 MODEL_PATH = "models/fashion-ai-model.keras"  # Add constant for model path
 class_labels = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat', 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']  # Add class labels
 
-class AIFashionImageRecognitionModel:  # Rename class
+class AIFashionImageRecognitionModel:
     def __init__(self, status_label=None):  # Add status_label parameter
         self.status_label = status_label  # Store the status_label
         self.index = 0 #this var keeps state of the current image being processed
         self.load_fashion_data()  # fashion MNIST images with labels
         
+     
         if not self.open_serialized_model():
             self.status("Model not found, retraining...")
             self.retrain(TRAINING_EPOCHS)
@@ -26,6 +27,12 @@ class AIFashionImageRecognitionModel:  # Rename class
     def load_fashion_data(self):
         (self.x_train, self.y_train), (self.x_test, self.y_test) = tf.keras.datasets.fashion_mnist.load_data()
         self.x_train, self.x_test = self.x_train / 255.0, self.x_test / 255.0
+        #self.x_train = np.expand_dims(self.x_train, -1)
+        #self.x_test = np.expand_dims(self.x_test, -1)
+        self.x_train = self.x_train.reshape((self.x_train.shape[0], 28, 28, 1))
+        self.x_test = self.x_test.reshape((self.x_test.shape[0], 28, 28, 1))
+
+
 
     def open_serialized_model(self):
         if os.path.exists(MODEL_PATH):
@@ -58,7 +65,7 @@ class AIFashionImageRecognitionModel:  # Rename class
 
     def recognize_image(self, image_array):
         # Preprocess the image
-        image_array = np.expand_dims(image_array, axis=0) / 255.0
+        image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension
         
         # Predict the class
         predictions = self.model.predict(image_array)
@@ -67,26 +74,30 @@ class AIFashionImageRecognitionModel:  # Rename class
         
         return predicted_label
 
-    def interpret_next_image(self):  # Rename method
+    def interpret_next_image(self):
         if self.index < len(self.x_test):
             image_array = self.x_test[self.index]
             self.index += 1
-            image = Image.fromarray((image_array * 255).astype(np.uint8))  # Denormalize for display
+            image = Image.fromarray((np.squeeze(image_array) * 255).astype(np.uint8))  # Denormalize for display
             image_tk = ImageTk.PhotoImage(image)
             predicted_label = self.recognize_image(image_array)
             return image_tk, predicted_label
         return None, None
 
     def retrain(self, epochs):
-        # Create the model
-        self.status("Creating the model")
+        # Create the CNN model
+        self.status("Creating the CNN model")
 
         self.model = tf.keras.Sequential([
-            tf.keras.layers.Flatten(input_shape=(28, 28)),
+            tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+            tf.keras.layers.MaxPooling2D((2, 2)),
+            tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+            tf.keras.layers.MaxPooling2D((2, 2)),
+            tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+            tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(128, activation='relu'),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Dense(10),
-            tf.keras.layers.Softmax()  # Add softmax layer for probability distribution
+            #tf.keras.layers.Dropout(0.5), #remove?? TODO
+            tf.keras.layers.Dense(10, activation='softmax')  # Add softmax layer for probability distribution
         ])
 
         # Compile the model
@@ -95,7 +106,8 @@ class AIFashionImageRecognitionModel:  # Rename class
                            metrics=['accuracy'])
 
         self.status(f"Retraining the model for {epochs} epochs, please wait...")
-        self.model.fit(self.x_train, self.y_train, epochs=epochs)
+        self.model.fit(self.x_train, self.y_train, epochs=epochs,
+                       validation_data=(self.x_test, self.y_test))
 
         self.status("Model retraining complete")
         self.status("Evaluating the model")
