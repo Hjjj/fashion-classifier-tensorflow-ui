@@ -1,7 +1,8 @@
 # fashion-classifier-tensorflow-ui
- runs the fashion image recognition model within a windows UI
 
- Currently a bug in recognize_image(self, image_array)
- no matter the query run, all images recognized as cat 5. 
- this is highest pri to fix next. 
+This AI Model is designed to ingest the NIMST fashion dataset of 60,000 images of various fashion objects. 
+
+This model works extremely fast on small machine platforms. 
+
+
  
